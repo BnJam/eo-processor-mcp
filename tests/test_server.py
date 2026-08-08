@@ -164,3 +164,57 @@ async def test_json_output_format(sample_bands, tmp_path):
     data = json.loads(result[0].text)
     assert data["mode"] == "json"
     assert "output_path" in data["data"]
+
+
+@pytest.mark.asyncio
+async def test_texture_features(tmp_npy):
+    arr = np.random.default_rng(7).integers(0, 7, (8, 8)).astype(np.float64)
+    input_path = tmp_npy(arr, "texture_input")
+    result = await execute_tool("texture_features", arguments={
+        "input": input_path,
+        "window_size": 3,
+        "levels": 8,
+    })
+    data = json.loads(result[0].text)
+    assert data["method"] == "haralick_features"
+    assert data["stats"]["shape"][0] == 4
+    out = np.load(data["output_path"])
+    assert out.shape == (4, 8, 8)
+
+
+@pytest.mark.asyncio
+async def test_texture_features_subset(tmp_npy):
+    arr = np.random.default_rng(7).integers(0, 7, (8, 8)).astype(np.float64)
+    input_path = tmp_npy(arr, "texture_subset")
+    result = await execute_tool("texture_features", arguments={
+        "input": input_path,
+        "features": ["contrast", "entropy"],
+    })
+    data = json.loads(result[0].text)
+    assert data["features"] == ["contrast", "entropy"]
+    out = np.load(data["output_path"])
+    assert out.shape == (2, 8, 8)
+
+
+@pytest.mark.asyncio
+async def test_classify_train_new_params(tmp_npy):
+    features = np.array(
+        [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+    )
+    labels = np.array([0.0, 1.0, 0.0, 0.0, 1.0, 0.0])
+    fp = tmp_npy(features, "clf_features")
+    lp = tmp_npy(labels, "clf_labels")
+    result = await execute_tool("classify", arguments={
+        "method": "train",
+        "features": fp,
+        "labels": lp,
+        "n_estimators": 8,
+        "min_samples_split": 2,
+        "max_depth": 2,
+    })
+    data = json.loads(result[0].text)
+    assert data["method"] == "train"
+    assert data["n_estimators"] == 8
+    assert data["min_samples_split"] == 2
+    assert data["max_depth"] == 2
+    assert isinstance(data["model"], str)
