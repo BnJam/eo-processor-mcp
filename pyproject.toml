@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "eo-processor-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "An MCP Server for Earth Observation processing powered by eo-processor"
 readme = "README.md"
 license = {text = "Apache-2.0"}
