@@ -56,3 +56,9 @@ lint.ignore = ["S101", "T201", "PLR0913", "PLR0912", "PLR0915", "COM812", "PLR09
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = ["tests/*", "scripts/*"]
+
+[tool.coverage.report]
+show_missing = true
