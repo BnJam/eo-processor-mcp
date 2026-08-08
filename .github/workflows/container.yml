@@ -32,7 +32,7 @@ jobs:
       version_changed: ${{ steps.bump.outputs.version_changed }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -43,7 +43,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v4
 
       - name: Sync dependencies (dev + extras)
         run: |
@@ -148,13 +148,13 @@ jobs:
     needs: [version-bump]
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install uv and tools
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v4
       - name: Install eo-processor from local source
         run: |
           cd ..
@@ -172,7 +172,7 @@ jobs:
           uv run python scripts/generate_coverage_badge.py coverage.xml coverage-badge.svg
           uv run coverage report
       - name: 📤 Upload Coverage Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-artifacts
           path: |
@@ -204,7 +204,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -242,7 +242,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'push' && needs.version-bump.outputs.version_changed == 'true' && 'main' || github.sha }}
 
@@ -250,7 +250,7 @@ jobs:
         run: echo "IMAGE_NAME_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -277,7 +277,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}
           tags: |
@@ -288,16 +288,16 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up QEMU (for cross-platform emulation)
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           install: true
 
       - name: Build and push Container image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Containerfile
