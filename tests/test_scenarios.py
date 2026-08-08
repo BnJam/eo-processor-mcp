@@ -61,7 +61,7 @@ def _make_4d_stack(
     return path
 
 
-async def scenario_1_basic_ndvi():
+async def test_scenario_1_basic_ndvi():
     """Scenario: Agent computes NDVI from NIR and Red bands."""
     print("\n=== Scenario 1: Basic NDVI computation ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -83,7 +83,7 @@ async def scenario_1_basic_ndvi():
         print("  PASS")
 
 
-async def scenario_2_multi_index():
+async def test_scenario_2_multi_index():
     """Scenario: Agent computes multiple indices from the same bands."""
     print("\n=== Scenario 2: Multiple indices from same bands ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -114,7 +114,7 @@ async def scenario_2_multi_index():
         print("  PASS")
 
 
-async def scenario_3_cloud_mask_pipeline():
+async def test_scenario_3_cloud_mask_pipeline():
     """Scenario: Agent masks clouds with SCL, then computes NDVI."""
     print("\n=== Scenario 3: Cloud mask + NDVI pipeline ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -157,7 +157,7 @@ async def scenario_3_cloud_mask_pipeline():
         print("  PASS")
 
 
-async def scenario_4_temporal_composite():
+async def test_scenario_4_temporal_composite():
     """Scenario: Agent computes median composite of a time series."""
     print("\n=== Scenario 4: Temporal median composite ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -174,7 +174,7 @@ async def scenario_4_temporal_composite():
         print("  PASS")
 
 
-async def scenario_5_change_detection():
+async def test_scenario_5_change_detection():
     """Scenario: Agent detects burn severity from pre/post fire imagery."""
     print("\n=== Scenario 5: Change detection (dNBR) ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -195,7 +195,7 @@ async def scenario_5_change_detection():
         print("  PASS")
 
 
-async def scenario_6_morphological_cleanup():
+async def test_scenario_6_morphological_cleanup():
     """Scenario: Agent cleans up a binary classification mask."""
     print("\n=== Scenario 6: Morphological cleanup of mask ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -219,7 +219,7 @@ async def scenario_6_morphological_cleanup():
         print("  PASS")
 
 
-async def scenario_7_zonal_stats():
+async def test_scenario_7_zonal_stats():
     """Scenario: Agent computes per-region statistics."""
     print("\n=== Scenario 7: Zonal statistics ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -246,7 +246,7 @@ async def scenario_7_zonal_stats():
         print("  PASS")
 
 
-async def scenario_8_moving_average():
+async def test_scenario_8_moving_average():
     """Scenario: Agent smooths a time series with moving average."""
     print("\n=== Scenario 8: Moving average smoothing ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -263,7 +263,7 @@ async def scenario_8_moving_average():
         print("  PASS")
 
 
-async def scenario_9_pixelwise_scaling():
+async def test_scenario_9_pixelwise_scaling():
     """Scenario: Agent scales NDVI to 0-255 uint8 range."""
     print("\n=== Scenario 9: Pixelwise scaling ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -293,7 +293,7 @@ async def scenario_9_pixelwise_scaling():
         print("  PASS")
 
 
-async def scenario_10_error_handling():
+async def test_scenario_10_error_handling():
     """Scenario: Agent hits various error conditions."""
     print("\n=== Scenario 10: Error handling ===")
 
@@ -328,7 +328,7 @@ async def scenario_10_error_handling():
     print("  PASS")
 
 
-async def scenario_11_shape_mismatch():
+async def test_scenario_11_shape_mismatch():
     """Scenario: Agent passes bands with different shapes."""
     print("\n=== Scenario 11: Shape mismatch detection ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -352,7 +352,7 @@ async def scenario_11_shape_mismatch():
         print("  DONE")
 
 
-async def scenario_12_list_capabilities():
+async def test_scenario_12_list_capabilities():
     """Scenario: Agent discovers available tools."""
     print("\n=== Scenario 12: Capability discovery ===")
     result = await execute_tool("list_capabilities", arguments={
@@ -369,7 +369,7 @@ async def scenario_12_list_capabilities():
     print("  PASS")
 
 
-async def scenario_13_json_output():
+async def test_scenario_13_json_output():
     """Scenario: Agent requests JSON output for programmatic parsing."""
     print("\n=== Scenario 13: JSON output format ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -387,7 +387,7 @@ async def scenario_13_json_output():
         print("  PASS")
 
 
-async def scenario_14_auto_output_path():
+async def test_scenario_14_auto_output_path():
     """Scenario: Agent doesn't specify output_path (auto-generated)."""
     print("\n=== Scenario 14: Auto-generated output path ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -406,7 +406,7 @@ async def scenario_14_auto_output_path():
         print("  PASS")
 
 
-async def scenario_15_replace_nans():
+async def test_scenario_15_replace_nans():
     """Scenario: Agent replaces NaN values after masking."""
     print("\n=== Scenario 15: NaN replacement ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -431,7 +431,7 @@ async def scenario_15_replace_nans():
         print("  PASS")
 
 
-async def scenario_16_distances():
+async def test_scenario_16_distances():
     """Scenario: Agent computes distances between point sets."""
     print("\n=== Scenario 16: Distance computation ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -466,7 +466,7 @@ async def scenario_16_distances():
         print("  PASS")
 
 
-async def scenario_17_trend_analysis():
+async def test_scenario_17_trend_analysis():
     """Scenario: Agent analyzes a vegetation time series trend."""
     print("\n=== Scenario 17: Trend analysis ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -488,7 +488,7 @@ async def scenario_17_trend_analysis():
         print("  PASS")
 
 
-async def scenario_18_scl_keep_codes():
+async def test_scenario_18_scl_keep_codes():
     """Scenario: Agent uses SCL mask with custom keep codes."""
     print("\n=== Scenario 18: SCL mask with custom keep codes ===")
     with tempfile.TemporaryDirectory() as tmp:
@@ -511,24 +511,24 @@ async def scenario_18_scl_keep_codes():
 
 async def main():
     scenarios = [
-        scenario_1_basic_ndvi,
-        scenario_2_multi_index,
-        scenario_3_cloud_mask_pipeline,
-        scenario_4_temporal_composite,
-        scenario_5_change_detection,
-        scenario_6_morphological_cleanup,
-        scenario_7_zonal_stats,
-        scenario_8_moving_average,
-        scenario_9_pixelwise_scaling,
-        scenario_10_error_handling,
-        scenario_11_shape_mismatch,
-        scenario_12_list_capabilities,
-        scenario_13_json_output,
-        scenario_14_auto_output_path,
-        scenario_15_replace_nans,
-        scenario_16_distances,
-        scenario_17_trend_analysis,
-        scenario_18_scl_keep_codes,
+        test_scenario_1_basic_ndvi,
+        test_scenario_2_multi_index,
+        test_scenario_3_cloud_mask_pipeline,
+        test_scenario_4_temporal_composite,
+        test_scenario_5_change_detection,
+        test_scenario_6_morphological_cleanup,
+        test_scenario_7_zonal_stats,
+        test_scenario_8_moving_average,
+        test_scenario_9_pixelwise_scaling,
+        test_scenario_10_error_handling,
+        test_scenario_11_shape_mismatch,
+        test_scenario_12_list_capabilities,
+        test_scenario_13_json_output,
+        test_scenario_14_auto_output_path,
+        test_scenario_15_replace_nans,
+        test_scenario_16_distances,
+        test_scenario_17_trend_analysis,
+        test_scenario_18_scl_keep_codes,
     ]
 
     passed = 0

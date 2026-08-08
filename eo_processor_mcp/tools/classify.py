@@ -18,21 +18,33 @@ def handle_classify(args: dict[str, Any]) -> str:
         features = load_array(args["features"])
         labels = load_array(args["labels"])
         n_estimators = int(args.get("n_estimators", 100))
+        min_samples_split = int(args.get("min_samples_split", 2))
         max_depth = args.get("max_depth")
         if max_depth is not None:
             max_depth = int(max_depth)
+        max_features = args.get("max_features")
+        if max_features is not None:
+            max_features = int(max_features)
 
         model_json = eop.random_forest_train(
-            features, labels,
+            features,
+            labels,
             n_estimators=n_estimators,
+            min_samples_split=min_samples_split,
             max_depth=max_depth,
+            max_features=max_features,
         )
-        return json.dumps({
-            "method": "train",
-            "model": model_json,
-            "n_estimators": n_estimators,
-            "max_depth": max_depth,
-        }, separators=(",", ":"))
+        return json.dumps(
+            {
+                "method": "train",
+                "model": model_json,
+                "n_estimators": n_estimators,
+                "min_samples_split": min_samples_split,
+                "max_depth": max_depth,
+                "max_features": max_features,
+            },
+            separators=(",", ":"),
+        )
 
     if method == "predict":
         features = load_array(args["features"])

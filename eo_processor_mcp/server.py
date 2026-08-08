@@ -56,9 +56,15 @@ async def compute_spectral_index(
         "output_format": output_format,
     }
     for band_name, band_val in [
-        ("nir", nir), ("red", red), ("green", green), ("blue", blue),
-        ("swir1", swir1), ("swir2", swir2), ("rededge", rededge),
-        ("a", a), ("b", b),
+        ("nir", nir),
+        ("red", red),
+        ("green", green),
+        ("blue", blue),
+        ("swir1", swir1),
+        ("swir2", swir2),
+        ("rededge", rededge),
+        ("a", a),
+        ("b", b),
     ]:
         if band_val is not None:
             arguments[band_name] = band_val
@@ -100,8 +106,10 @@ async def compute_change_index(
         "output_format": output_format,
     }
     for band_name, band_val in [
-        ("pre_red", pre_red), ("pre_swir2", pre_swir2),
-        ("post_red", post_red), ("post_swir2", post_swir2),
+        ("pre_red", pre_red),
+        ("pre_swir2", pre_swir2),
+        ("post_red", post_red),
+        ("post_swir2", post_swir2),
     ]:
         if band_val is not None:
             arguments[band_name] = band_val
@@ -238,10 +246,16 @@ async def apply_mask(
         "output_format": output_format,
     }
     for k, v in [
-        ("values", values), ("fill_value", fill_value), ("nan_to", nan_to),
-        ("value", value), ("min_val", min_val), ("max_val", max_val),
-        ("invalid_values", invalid_values), ("scl", scl),
-        ("keep_codes", keep_codes), ("mask_codes", mask_codes),
+        ("values", values),
+        ("fill_value", fill_value),
+        ("nan_to", nan_to),
+        ("value", value),
+        ("min_val", min_val),
+        ("max_val", max_val),
+        ("invalid_values", invalid_values),
+        ("scl", scl),
+        ("keep_codes", keep_codes),
+        ("mask_codes", mask_codes),
     ]:
         if v is not None:
             arguments[k] = v
@@ -377,7 +391,9 @@ async def classify(
     labels: str | None = None,
     model: str | None = None,
     n_estimators: int | None = 100,
+    min_samples_split: int | None = 2,
     max_depth: int | None = None,
+    max_features: int | None = None,
     blue: str | None = None,
     green: str | None = None,
     red: str | None = None,
@@ -396,7 +412,9 @@ async def classify(
         labels: Path to labels .npy (for train).
         model: JSON model string (for predict).
         n_estimators: Number of estimators (for train, default 100).
+        min_samples_split: Min samples to split a node (for train, default 2).
         max_depth: Max tree depth (for train, default None).
+        max_features: Max features per split (for train, default None).
         blue: Path to Blue band .npy (for complex).
         green: Path to Green band .npy (for complex).
         red: Path to Red band .npy (for complex).
@@ -414,10 +432,19 @@ async def classify(
         "output_format": output_format,
     }
     for k, v in [
-        ("labels", labels), ("model", model),
-        ("n_estimators", n_estimators), ("max_depth", max_depth),
-        ("blue", blue), ("green", green), ("red", red),
-        ("nir", nir), ("swir1", swir1), ("swir2", swir2), ("temp", temp),
+        ("labels", labels),
+        ("model", model),
+        ("n_estimators", n_estimators),
+        ("min_samples_split", min_samples_split),
+        ("max_depth", max_depth),
+        ("max_features", max_features),
+        ("blue", blue),
+        ("green", green),
+        ("red", red),
+        ("nir", nir),
+        ("swir1", swir1),
+        ("swir2", swir2),
+        ("temp", temp),
     ]:
         if v is not None:
             arguments[k] = v
@@ -428,7 +455,8 @@ async def classify(
 async def texture_features(
     input: str,
     window_size: int | None = 3,
-    levels: int | None = 16,
+    levels: int | None = 8,
+    features: list[str] | None = None,
     output_path: str | None = None,
     output_format: str | None = "text",
 ) -> list[dict[str, Any]]:
@@ -437,17 +465,21 @@ async def texture_features(
     Args:
         input: Path to input .npy file (2D).
         window_size: GLCM window size (default 3).
-        levels: Quantization levels (default 16).
+        levels: Quantization levels (default 8).
+        features: Feature subset (default all: contrast, dissimilarity,
+                  homogeneity, entropy).
         output_path: Optional path to save result .npy.
         output_format: Output format ("text" or "json").
     """
-    arguments = {
+    arguments: dict[str, Any] = {
         "input": input,
         "window_size": window_size,
         "levels": levels,
         "output_path": output_path,
         "output_format": output_format,
     }
+    if features is not None:
+        arguments["features"] = features
     return await execution.execute_tool("texture_features", arguments=arguments)
 
 

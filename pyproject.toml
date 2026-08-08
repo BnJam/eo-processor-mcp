@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "eo-processor-mcp"
-version = "0.1.1"
+version = "0.2.0"
 description = "An MCP Server for Earth Observation processing powered by eo-processor"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -27,7 +27,7 @@ requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.2.0,<4.0.0",
     "pydantic>=2.11.0",
-    "eo-processor>=0.19.0",
+    "eo-processor>=0.23.1",
     "numpy>=1.20.0",
     "xarray>=2023.0.0",
 ]
@@ -56,3 +56,9 @@ lint.ignore = ["S101", "T201", "PLR0913", "PLR0912", "PLR0915", "COM812", "PLR09
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = ["tests/*", "scripts/*"]
+
+[tool.coverage.report]
+show_missing = true
