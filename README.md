@@ -1,5 +1,7 @@
 # eo-processor-mcp
 
+![Coverage](https://raw.githubusercontent.com/BnJam/eo-processor-mcp/main/coverage-badge.svg)
+
 An MCP (Model Context Protocol) server for Earth Observation processing, powered by [eo-processor](https://github.com/BnJam/eo-processor).
 
 Similar to [stac-mcp](https://github.com/BnJam/stac-mcp) for STAC catalog operations, this server exposes eo-processor's high-performance Rust-accelerated EO computation functions as MCP tools that AI agents can invoke.
