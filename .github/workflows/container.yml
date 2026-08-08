@@ -1,0 +1,301 @@
+name: Build and Publish Container
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+      version_changed: ${{ steps.bump.outputs.version_changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies (dev + extras)
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Determine version increment from merged PR
+        id: bump
+        run: |
+          MERGE_MSG=$(git log -1 --pretty=format:"%s")
+          echo "Merge message: $MERGE_MSG"
+
+          PR_NUM=$(echo "$MERGE_MSG" | grep -oP "Merge pull request #\K\d+" || echo "")
+          if [ -z "$PR_NUM" ]; then
+            PR_NUM=$(echo "$MERGE_MSG" | grep -oP "\(#\K\d+(?=\)$)" || echo "")
+          fi
+
+          if [ -z "$PR_NUM" ]; then
+            echo "No PR number found in merge commit, skipping version bump"
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found PR #$PR_NUM"
+
+          BRANCH_NAME=$(gh pr view $PR_NUM --json headRefName --jq '.headRefName')
+          LABELS=$(gh pr view $PR_NUM --json labels --jq '.labels[].name' | tr '\n' ' ')
+          echo "Branch name: $BRANCH_NAME"
+          echo "PR labels: $LABELS"
+
+          INCREMENT_TYPE=""
+
+          if echo "$LABELS" | grep -q "bump:none"; then
+            INCREMENT_TYPE=""
+            echo "Version bump skipped due to 'bump:none' label"
+          elif echo "$LABELS" | grep -q "bump:major\|bump:release"; then
+            INCREMENT_TYPE="major"
+            echo "Version bump determined by label: major"
+          elif echo "$LABELS" | grep -q "bump:minor\|bump:feature"; then
+            INCREMENT_TYPE="minor"
+            echo "Version bump determined by label: minor"
+          elif echo "$LABELS" | grep -q "bump:patch\|bump:hotfix"; then
+            INCREMENT_TYPE="patch"
+            echo "Version bump determined by label: patch"
+          elif [[ "$BRANCH_NAME" == hotfix/* ]] || [[ "$BRANCH_NAME" == copilot/fix-* ]] || [[ "$BRANCH_NAME" == copilot/hotfix/* ]] || [[ "$BRANCH_NAME" == fix/* ]]; then
+            INCREMENT_TYPE="patch"
+            echo "Version bump determined by branch prefix: patch"
+          elif [[ "$BRANCH_NAME" == feature/* ]] || [[ "$BRANCH_NAME" == copilot/feature/* ]]; then
+            INCREMENT_TYPE="minor"
+            echo "Version bump determined by branch prefix: minor"
+          elif [[ "$BRANCH_NAME" == release/* ]] || [[ "$BRANCH_NAME" == copilot/release/* ]]; then
+            INCREMENT_TYPE="major"
+            echo "Version bump determined by branch prefix: major"
+          fi
+
+          if [ -z "$INCREMENT_TYPE" ]; then
+            echo "No version bump label or recognized branch prefix found, skipping version bump"
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Version increment type: $INCREMENT_TYPE"
+
+          CURRENT_VERSION=$(python scripts/version.py current | cut -d' ' -f3)
+          echo "Current version: $CURRENT_VERSION"
+
+          python scripts/version.py $INCREMENT_TYPE
+          NEW_VERSION=$(python scripts/version.py current | cut -d' ' -f3)
+
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version_changed=true" >> $GITHUB_OUTPUT
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add pyproject.toml eo_processor_mcp/__init__.py
+          git commit -m "chore: bump version to $NEW_VERSION (auto-increment from $BRANCH_NAME branch)"
+
+          git pull --rebase --autostash origin main || (git fetch origin main && git rebase origin/main)
+
+          git push
+
+          git tag "v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  coverage-report:
+    name: Update Coverage Badge
+    runs-on: ubuntu-latest
+    needs: [version-bump]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv and tools
+        uses: astral-sh/setup-uv@v3
+      - name: Install eo-processor from local source
+        run: |
+          cd ..
+          git clone https://github.com/BnJam/eo-processor.git
+          cd eo-processor
+          uv pip install --system .
+      - name: Sync dependencies (dev + extras)
+        run: uv sync --all-extras --dev
+      - name: Run Tests and Generate Coverage Report
+        id: tests_step
+        continue-on-error: true
+        run: |
+          uv run coverage run -m pytest -v
+          uv run coverage xml
+          uv run python scripts/generate_coverage_badge.py coverage.xml coverage-badge.svg
+          uv run coverage report
+      - name: 📤 Upload Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-artifacts
+          path: |
+            coverage.xml
+            coverage-badge.svg
+      - name: 📤 Upload Coverage Report
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet coverage-badge.svg 2>/dev/null; then
+            echo 'No badge changes'
+          else
+            git config user.name 'github-actions'
+            git config user.email 'actions@github.com'
+            git add coverage-badge.svg
+            git commit -m 'chore(ci): update coverage badge'
+            git pull --rebase --autostash origin main || (git fetch origin main && git rebase origin/main)
+            git push
+          fi
+
+  pypi-publish:
+    runs-on: ubuntu-latest
+    needs: [version-bump]
+    if: needs.version-bump.outputs.version_changed == 'true'
+    environment:
+      name: pypi
+      url: https://pypi.org/project/eo-processor-mcp/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Check package
+        run: |
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [version-bump, pypi-publish]
+    if: needs.version-bump.outputs.version_changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && needs.version-bump.outputs.version_changed == 'true' && 'main' || github.sha }}
+
+      - name: Set up lowercase image name
+        run: echo "IMAGE_NAME_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute version for tagging
+        id: ver
+        run: |
+          VERSION=""
+          if [ "${{ needs.version-bump.outputs.version_changed }}" = "true" ] && [ -n "${{ needs.version-bump.outputs.new_version }}" ]; then
+            VERSION="${{ needs.version-bump.outputs.new_version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+            SEMVER_REGEX="^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$"
+            if ! [[ "$VERSION" =~ $SEMVER_REGEX ]]; then
+              echo "Error: Extracted version '$VERSION' is not a valid semver." >&2
+              exit 1
+            fi
+          fi
+          echo "Resolved version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}
+          tags: |
+            type=ref,event=pr
+            type=semver,pattern={{version}},value=${{ steps.ver.outputs.version }},enable=${{ steps.ver.outputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.ver.outputs.version }},enable=${{ steps.ver.outputs.version != '' }}
+            type=semver,pattern={{major}},value=${{ steps.ver.outputs.version }},enable=${{ steps.ver.outputs.version != '' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up QEMU (for cross-platform emulation)
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+
+      - name: Build and push Container image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  github-release:
+    runs-on: ubuntu-latest
+    needs: [version-bump]
+    permissions:
+      contents: write
+    if: needs.version-bump.outputs.version_changed == 'true'
+    steps:
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ needs.version-bump.outputs.new_version }}
+          name: "Release v${{ needs.version-bump.outputs.new_version }}"
+          body: "New release: v${{ needs.version-bump.outputs.new_version }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
