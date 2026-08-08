@@ -70,6 +70,32 @@ EO_PROCESSOR_MCP_TRANSPORT=http python -m eo_processor_mcp
 }
 ```
 
+### Container (GHCR)
+
+A pre-built image is published to GitHub Container Registry on every merge to `main`:
+
+```bash
+docker pull ghcr.io/bnjam/eo-processor-mcp:latest
+docker run --rm ghcr.io/bnjam/eo-processor-mcp:latest
+```
+
+Available tags:
+- `latest` — most recent `main` build
+- `sha-<short-sha>` — immutable build for a specific commit
+- `<X.Y.Z>`, `<X>.<Y>`, `<X>` — semver tags (only when a version bump occurs)
+
+To use the container with an MCP client:
+
+```json
+{
+  "eo-processor": {
+    "command": "docker",
+    "args": ["run", "--rm", "ghcr.io/bnjam/eo-processor-mcp:latest"],
+    "transport": "stdio"
+  }
+}
+```
+
 ## Data Format
 
 All tools accept **NumPy .npy file paths** as input and write results to .npy files. Tool responses include:
