@@ -4,6 +4,16 @@ on:
   push:
     branches: [main]
     tags: ["*"]
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type (major, minor, patch)'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 env:
   REGISTRY: ghcr.io
@@ -12,7 +22,9 @@ env:
 jobs:
   version-bump:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     permissions:
       contents: write
     outputs:
@@ -40,56 +52,62 @@ jobs:
       - name: Determine version increment from merged PR
         id: bump
         run: |
-          MERGE_MSG=$(git log -1 --pretty=format:"%s")
-          echo "Merge message: $MERGE_MSG"
+          # Check for manual workflow_dispatch input first
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.bump_type }}" ]; then
+            INCREMENT_TYPE="${{ github.event.inputs.bump_type }}"
+            echo "Manual version bump triggered: $INCREMENT_TYPE"
+          else
+            MERGE_MSG=$(git log -1 --pretty=format:"%s")
+            echo "Merge message: $MERGE_MSG"
 
-          PR_NUM=$(echo "$MERGE_MSG" | grep -oP "Merge pull request #\K\d+" || echo "")
-          if [ -z "$PR_NUM" ]; then
-            PR_NUM=$(echo "$MERGE_MSG" | grep -oP "\(#\K\d+(?=\)$)" || echo "")
-          fi
+            PR_NUM=$(echo "$MERGE_MSG" | grep -oP "Merge pull request #\K\d+" || echo "")
+            if [ -z "$PR_NUM" ]; then
+              PR_NUM=$(echo "$MERGE_MSG" | grep -oP "\(#\K\d+(?=\)$)" || echo "")
+            fi
 
-          if [ -z "$PR_NUM" ]; then
-            echo "No PR number found in merge commit, skipping version bump"
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+            if [ -z "$PR_NUM" ]; then
+              echo "No PR number found in merge commit, skipping version bump"
+              echo "version_changed=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
 
-          echo "Found PR #$PR_NUM"
+            echo "Found PR #$PR_NUM"
 
-          BRANCH_NAME=$(gh pr view $PR_NUM --json headRefName --jq '.headRefName')
-          LABELS=$(gh pr view $PR_NUM --json labels --jq '.labels[].name' | tr '\n' ' ')
-          echo "Branch name: $BRANCH_NAME"
-          echo "PR labels: $LABELS"
+            BRANCH_NAME=$(gh pr view $PR_NUM --json headRefName --jq '.headRefName')
+            LABELS=$(gh pr view $PR_NUM --json labels --jq '.labels[].name' | tr '\n' ' ')
+            echo "Branch name: $BRANCH_NAME"
+            echo "PR labels: $LABELS"
 
-          INCREMENT_TYPE=""
-
-          if echo "$LABELS" | grep -q "bump:none"; then
             INCREMENT_TYPE=""
-            echo "Version bump skipped due to 'bump:none' label"
-          elif echo "$LABELS" | grep -q "bump:major\|bump:release"; then
-            INCREMENT_TYPE="major"
-            echo "Version bump determined by label: major"
-          elif echo "$LABELS" | grep -q "bump:minor\|bump:feature"; then
-            INCREMENT_TYPE="minor"
-            echo "Version bump determined by label: minor"
-          elif echo "$LABELS" | grep -q "bump:patch\|bump:hotfix"; then
-            INCREMENT_TYPE="patch"
-            echo "Version bump determined by label: patch"
-          elif [[ "$BRANCH_NAME" == hotfix/* ]] || [[ "$BRANCH_NAME" == copilot/fix-* ]] || [[ "$BRANCH_NAME" == copilot/hotfix/* ]] || [[ "$BRANCH_NAME" == fix/* ]]; then
-            INCREMENT_TYPE="patch"
-            echo "Version bump determined by branch prefix: patch"
-          elif [[ "$BRANCH_NAME" == feature/* ]] || [[ "$BRANCH_NAME" == copilot/feature/* ]]; then
-            INCREMENT_TYPE="minor"
-            echo "Version bump determined by branch prefix: minor"
-          elif [[ "$BRANCH_NAME" == release/* ]] || [[ "$BRANCH_NAME" == copilot/release/* ]]; then
-            INCREMENT_TYPE="major"
-            echo "Version bump determined by branch prefix: major"
-          fi
 
-          if [ -z "$INCREMENT_TYPE" ]; then
-            echo "No version bump label or recognized branch prefix found, skipping version bump"
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-            exit 0
+            if echo "$LABELS" | grep -q "bump:none"; then
+              INCREMENT_TYPE=""
+              echo "Version bump skipped due to 'bump:none' label"
+            elif echo "$LABELS" | grep -q "bump:major\|bump:release"; then
+              INCREMENT_TYPE="major"
+              echo "Version bump determined by label: major"
+            elif echo "$LABELS" | grep -q "bump:minor\|bump:feature"; then
+              INCREMENT_TYPE="minor"
+              echo "Version bump determined by label: minor"
+            elif echo "$LABELS" | grep -q "bump:patch\|bump:hotfix"; then
+              INCREMENT_TYPE="patch"
+              echo "Version bump determined by label: patch"
+            elif [[ "$BRANCH_NAME" == hotfix/* ]] || [[ "$BRANCH_NAME" == copilot/fix-* ]] || [[ "$BRANCH_NAME" == copilot/hotfix/* ]] || [[ "$BRANCH_NAME" == fix/* ]]; then
+              INCREMENT_TYPE="patch"
+              echo "Version bump determined by branch prefix: patch"
+            elif [[ "$BRANCH_NAME" == feature/* ]] || [[ "$BRANCH_NAME" == copilot/feature/* ]]; then
+              INCREMENT_TYPE="minor"
+              echo "Version bump determined by branch prefix: minor"
+            elif [[ "$BRANCH_NAME" == release/* ]] || [[ "$BRANCH_NAME" == copilot/release/* ]]; then
+              INCREMENT_TYPE="major"
+              echo "Version bump determined by branch prefix: major"
+            fi
+
+            if [ -z "$INCREMENT_TYPE" ]; then
+              echo "No version bump label or recognized branch prefix found, skipping version bump"
+              echo "version_changed=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
           fi
 
           echo "Version increment type: $INCREMENT_TYPE"
@@ -107,8 +125,13 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            COMMIT_MSG="chore: bump version to $NEW_VERSION (manual $INCREMENT_TYPE bump)"
+          else
+            COMMIT_MSG="chore: bump version to $NEW_VERSION (auto-increment from $BRANCH_NAME branch)"
+          fi
           git add pyproject.toml eo_processor_mcp/__init__.py
-          git commit -m "chore: bump version to $NEW_VERSION (auto-increment from $BRANCH_NAME branch)"
+          git commit -m "$COMMIT_MSG"
 
           git pull --rebase --autostash origin main || (git fetch origin main && git rebase origin/main)
 
